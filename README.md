@@ -2,11 +2,9 @@
 
 A cleaner version of [cursor-auto-free](https://github.com/chengazhen/cursor-auto-free)
 
-## Features
-
-- Bring your own email
-- Simple execution
-- Much cleaner code
+## Differences
+- Only bring-your-own-mailserver for now (or use Cloudflare email routing, see upstream's README)
+- You need to manually click the turnstile captcha twice
 
 ## Requirements
 - Cursor installed (obviously)
