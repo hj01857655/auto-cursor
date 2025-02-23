@@ -1,0 +1,15 @@
+[project]
+name = "cursor-auto-new"
+version = "0.1.0"
+description = "Automatically create a new Cursor account and add it to your local machine"
+requires-python = ">=3.13"
+dependencies = [
+    "loguru>=0.7.3",
+    "python-dotenv>=1.0.1",
+    "zendriver>=0.5.1",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.15.0",
+]
