@@ -5,7 +5,9 @@ description = "Automatically create a new Cursor account and add it to your loca
 requires-python = ">=3.13"
 dependencies = [
     "loguru>=0.7.3",
+    "psutil>=7.0.0",
     "python-dotenv>=1.0.1",
+    "types-psutil>=7.0.0.20250218",
     "zendriver>=0.5.1",
 ]
 

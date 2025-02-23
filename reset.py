@@ -10,7 +10,7 @@ from typing import Tuple
 
 from loguru import logger
 
-
+from reset_helpers.windows import reset_machine_ids_windows
 # ---------------------- Cursor Paths ----------------------
 
 def get_db_path() -> str:
@@ -127,6 +127,13 @@ def run_reset_script() -> bool:
     """Runs the appropriate reset script based on the operating system with real-time output streaming and UTF-8 encoding."""
     system = platform.system()
     logger.info(f"Detected OS: {system}")
+    
+    if system == "Windows":
+        success = reset_machine_ids_windows()
+        if not success:
+            logger.error("Windows machine ID reset failed")
+            return False
+        return True
 
     base_url = "https://aizaozao.com/accelerate.php/https://raw.githubusercontent.com/yuaotian/go-cursor-help/refs/heads/master/scripts/run"
 
@@ -179,8 +186,12 @@ def run_reset_script() -> bool:
 
 # ---------------------- Main Execution ----------------------
 
-def reset_machine_ids() -> None:
-    """Determines Cursor version and executes the appropriate reset method."""
+def reset_machine_ids() -> bool:
+    """
+    Determines Cursor version and executes the appropriate reset method.
+    Returns:
+        bool: True if reset was successful, False otherwise.
+    """
     logger.info("Starting Cursor machine ID reset process...")
 
     try:
@@ -189,22 +200,17 @@ def reset_machine_ids() -> None:
 
         if not version or not is_version_valid(version):
             logger.error("Failed to determine version, aborting.")
-            sys.exit(1)
+            return False
 
         logger.info(f"Detected Cursor version: {version}")
 
         if is_version_valid(version, min_version="0.45.0"):
             logger.info("Using newer script-based method. (running random chinese bullshit witn admin priviledges 🔥🔥🔥)")
-            success = run_reset_script()
+            return run_reset_script()
         else:
             logger.info("Using legacy file modification method.")
-            success = modify_js_file(main_path)
-
-        if success:
-            logger.info("Cursor Machine ID reset successful.")
-        else:
-            logger.error("Cursor Machine ID reset failed.")
+            return modify_js_file(main_path)
 
     except Exception as e:
         logger.error(f"Unexpected Error: {e}")
-        sys.exit(1)
+        return False

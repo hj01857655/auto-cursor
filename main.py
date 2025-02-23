@@ -3,6 +3,9 @@ import os
 import random
 import re
 import string
+import sys
+import ctypes
+import subprocess
 from typing import Optional
 
 import zendriver as zd
@@ -13,6 +16,7 @@ from zendriver.core.browser import Browser
 from auth import update_auth
 from mail import fetch_email
 from reset import reset_machine_ids
+from reset_helpers.windows import check_admin
 
 if os.path.exists(".env"):
     load_dotenv()
@@ -24,6 +28,33 @@ else:
 login_url = "https://authenticator.cursor.sh"
 sign_up_url = "https://authenticator.cursor.sh/sign-up"
 settings_url = "https://www.cursor.com/settings"
+
+
+def request_admin_elevation():
+    """Request admin privileges if not already running as admin."""
+    if check_admin():
+        return True
+        
+    logger.info("Requesting administrator privileges...")
+    try:
+        if getattr(sys, 'frozen', False):
+            # If running as a frozen executable
+            script = sys.executable
+            args = sys.argv[1:]
+        else:
+            # If running as a Python script
+            script = sys.executable
+            args = [sys.argv[0]] + sys.argv[1:]
+            
+        shell32 = ctypes.windll.shell32
+        ret = shell32.ShellExecuteW(None, "runas", script, f'"{" ".join(args)}"', None, 1)
+        if ret <= 32:  # ShellExecute returns a value <= 32 on error
+            logger.error("Failed to elevate privileges. Error code: {}", ret)
+            return False
+        return True
+    except Exception as e:
+        logger.error("Failed to request administrator privileges: {}", e)
+        return False
 
 
 async def sign_up(browser: Browser, email: str) -> Optional[str]:
@@ -115,11 +146,15 @@ async def sign_up(browser: Browser, email: str) -> Optional[str]:
     return None
 
 
-
-
-
 async def main():
     logger.info("Starting...")
+
+    # Check for admin rights at startup
+    if not check_admin():
+        if not request_admin_elevation():
+            logger.error("This program requires administrator privileges.")
+            sys.exit(1)
+        sys.exit(0)  # Exit the non-elevated instance
 
     browser = await zd.start(
         lang="en_US", headless=False,
@@ -135,16 +170,20 @@ async def main():
     await browser.stop()
 
     logger.info("Updating the local Cursor database...")
-    success = update_auth(email, session_token, session_token)
+    success = await update_auth(email, session_token, session_token)
     if not success:
         logger.error("Couldn't update the local Cursor database.")
+        exit(1)
 
-    reset_machine_ids()
+    logger.info("Resetting machine IDs...")
+    success = reset_machine_ids()
+    if not success:
+        logger.error("Failed to reset machine IDs.")
+        exit(1)
 
     logger.success("Complete!")
     await asyncio.sleep(1)
     input("Press enter to exit...")
-
 
 
 if __name__ == "__main__":
