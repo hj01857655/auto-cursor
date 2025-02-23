@@ -16,6 +16,7 @@ from auth import update_auth
 from mail import fetch_email
 from reset import reset_machine_ids
 from reset_helpers.windows import check_admin
+from temp_mail import get_new_email, get_tempmail_confirmation_code
 
 if os.path.exists(".env"):
     load_dotenv()
@@ -56,7 +57,7 @@ def request_admin_elevation():
         return False
 
 
-async def sign_up(browser: Browser, email: str) -> Optional[str]:
+async def sign_up(browser: Browser, email: str, token: Optional[str] = None) -> Optional[str]:
     """
     Registers a new Cursor account.
     Requires user interaction.
@@ -112,23 +113,26 @@ async def sign_up(browser: Browser, email: str) -> Optional[str]:
         except Exception:
             pass
 
-    email_content = await fetch_email(
-        os.getenv("IMAP_SERVER", ""),
-        int(os.getenv("IMAP_PORT", "0")),
-        os.getenv("IMAP_USER", ""),
-        os.getenv("IMAP_PASS", ""),
-    )
-    
-    if email_content is None:
-        logger.error("Failed to fetch email")
-        return None
+    if not os.getenv("USE_TEMPMAIL", "false").lower() == "true":
+        email_content = await fetch_email(
+            os.getenv("IMAP_SERVER", ""),
+            int(os.getenv("IMAP_PORT", "0")),
+            os.getenv("IMAP_USER", ""),
+            os.getenv("IMAP_PASS", ""),
+        )
+        
+        if email_content is None:
+            logger.error("Failed to fetch email")
+            return None
 
-    code_search = re.search(r'\b\d{6}\b', email_content)
-    if not code_search:
-        logger.error("Couldn't find a code in your email.")
-        return None
+        code_search = re.search(r'\b\d{6}\b', email_content)
+        if not code_search:
+            logger.error("Couldn't find a code in your email.")
+            return None
 
-    code = code_search.group(0)
+        code = code_search.group(0)
+    else:
+        code = await get_tempmail_confirmation_code(token)
 
     logger.info("Got verification code: " + code)
 
@@ -159,9 +163,13 @@ async def main():
         lang="en_US", headless=False,
     )
 
-    email = os.getenv('EMAIL_ADDRESS_PREFIX', 'cur') + "".join(random.choices(string.ascii_lowercase, k=6)) + "@" + os.getenv("DOMAIN", "example.com")
+    if os.getenv("USE_TEMPMAIL", "false").lower() == "true":
+        email, token = await get_new_email()
+    else:
+        email = os.getenv('EMAIL_ADDRESS_PREFIX', 'cur') + "".join(random.choices(string.ascii_lowercase, k=6)) + "@" + os.getenv("DOMAIN", "example.com")
+        token = None
 
-    session_token = await sign_up(browser, email)
+    session_token = await sign_up(browser, email, token)
     if not session_token:
         logger.error("Couldn't find a session token.")
         exit(1)

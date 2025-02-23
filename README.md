@@ -13,6 +13,13 @@ A cleaner version of [cursor-auto-free](https://github.com/chengazhen/cursor-aut
 
 ## Usage
 - Copy the example configuration (`.env.example`) to `.env` and fill in your email domain and IMAP details. 
+
+**Method 1 (easier but less reliable, generally recommended for first time users):**
+In your `.env` set **USE_TEMPMAIL** to True, leave the rest of the fields empty. Then proceed to run the script.
+
+**Method 2 (harder but more reliable):**
+In your `.env` set USE_TEMPMAIL to False, and fill in the IMAP credentials of your selfhosted mailserver. You should have a postfix-regex.cf line that will force your mailserver to capture all emails to adresses that follows the pattern `EMAIL_ADDRESS_PREFIX{random_letters}@DOMAIN`. Then proceed to run the script.
+
 - Install dependencies:
 
 ```bash
