@@ -5,7 +5,6 @@ import re
 import string
 import sys
 import ctypes
-import subprocess
 from typing import Optional
 
 import zendriver as zd
@@ -91,7 +90,7 @@ async def sign_up(browser: Browser, email: str) -> Optional[str]:
     await submit_button.click()
 
     password_box = None
-    logger.info("Waiting for turnstile completion...")
+    logger.warning("Waiting for turnstile completion...")
     while not password_box:
         try:
             password_box = await tab.select("input[name='password']", timeout=1)
@@ -106,7 +105,7 @@ async def sign_up(browser: Browser, email: str) -> Optional[str]:
     await submit_button.click()
 
     code_input_box = None
-    logger.info("Waiting for turnstile completion...")
+    logger.warning("Waiting for turnstile completion...")
     while not code_input_box:
         try:
             code_input_box = await tab.select("input[name='code']", timeout=1)
