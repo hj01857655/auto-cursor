@@ -8,12 +8,13 @@ A cleaner version of [cursor-auto-free](https://github.com/chengazhen/cursor-aut
 - Simple execution
 - Much cleaner code
 
-## Caveats
-- Google Chrome needs to be installed
-- You need to **manually** click the turnstile captcha twice
+## Requirements
+- Cursor installed (obviously)
+- Google Chrome (or any other browser compatible with zendriver)
+- [uv](https://docs.astral.sh/uv/getting-started/installation/)
 
 ## Usage
-- Copy the example configuration (`.env.example`) to `.env` and fill in your email domain and IMAP details.
+- Copy the example configuration (`.env.example`) to `.env` and fill in your email domain and IMAP details. 
 - Install dependencies:
 
 ```bash
