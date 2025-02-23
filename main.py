@@ -90,7 +90,7 @@ async def sign_up(browser: Browser, email: str) -> Optional[str]:
     await submit_button.click()
 
     password_box = None
-    logger.warning("Waiting for turnstile completion...")
+    logger.warning("Please tick the turnstile checkbox...")
     while not password_box:
         try:
             password_box = await tab.select("input[name='password']", timeout=1)
@@ -105,7 +105,7 @@ async def sign_up(browser: Browser, email: str) -> Optional[str]:
     await submit_button.click()
 
     code_input_box = None
-    logger.warning("Waiting for turnstile completion...")
+    logger.warning("Please tick the turnstile checkbox...")
     while not code_input_box:
         try:
             code_input_box = await tab.select("input[name='code']", timeout=1)
