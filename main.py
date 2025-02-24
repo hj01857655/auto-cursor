@@ -2,6 +2,7 @@ import asyncio
 import os
 import random
 import re
+import socket
 import string
 import sys
 import ctypes
@@ -157,20 +158,45 @@ async def sign_up(browser: Browser, email: str, token: Optional[str] = None) -> 
 
     return None
 
+def exit_with_confirmation(exit_code: int = 1):
+    input("Press enter to exit...")
+    exit(exit_code)
+    
+
+def check_nekobox_availability():
+    if os.getenv("USE_NEKOBOX_IF_AVAILABLE", "false").lower() == "true":
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            result = sock.connect_ex(("127.0.0.1", 10808))
+            if result == 0:
+                logger.info("Nekobox is available, using it for proxy.")
+                return True
+    return False
+
 
 async def main():
     logger.info("Starting...")
 
     # Check for admin rights at startup
     if not request_admin_elevation():
-        sys.exit(1)
+        exit(0)
+        
+    if check_nekobox_availability():
+        proxies = {"https": f"socks5://127.0.0.1:{os.getenv('NEKOBOX_PORT', 2080)}"}
+    elif os.getenv("PROXY_URL", None):
+        proxies = {"https": os.getenv("PROXY_URL")}
+    else:
+        proxies = None
 
     browser = await zd.start(
         lang="en_US", headless=False, browser_executable_path=os.getenv("BROWSER_PATH", None),
     )
 
     if os.getenv("USE_TEMPMAIL", "false").lower() == "true":
-        email, token = await get_new_email()
+        try:
+            email, token = await get_new_email(proxies=proxies)
+        except Exception as error:
+            logger.critical(f"Failed to get a temporary email address: {error}")
+            exit_with_confirmation()
     else:
         email = os.getenv('EMAIL_ADDRESS_PREFIX', 'cur') + "".join(random.choices(string.ascii_lowercase, k=6)) + "@" + os.getenv("DOMAIN", "example.com")
         token = None
@@ -178,7 +204,7 @@ async def main():
     session_token = await sign_up(browser, email, token)
     if not session_token:
         logger.error("Couldn't find a session token.")
-        exit(1)
+        exit_with_confirmation()
 
     await browser.stop()
 
@@ -186,13 +212,13 @@ async def main():
     success = await update_auth(email, session_token, session_token)
     if not success:
         logger.error("Couldn't update the local Cursor database.")
-        exit(1)
+        exit_with_confirmation()
 
     logger.info("Resetting machine IDs...")
     success = reset_machine_ids()
     if not success:
         logger.error("Failed to reset machine IDs.")
-        exit(1)
+        exit_with_confirmation()
 
     logger.success("Complete!")
     await asyncio.sleep(1)

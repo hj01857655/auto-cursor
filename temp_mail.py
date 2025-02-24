@@ -102,11 +102,12 @@ class PreviewEmail:
 
 
 class AsyncTempMail:
-    def __init__(self, user_agent=None):
+    def __init__(self, user_agent=None, proxies=None):
         self.user_agent = USER_AGENT if not user_agent else user_agent
+        self.proxies = proxies
 
     async def __aenter__(self):
-        self.session = AsyncSession(impersonate="chrome120", timeout=300)
+        self.session = AsyncSession(impersonate="chrome120", timeout=300, proxies=self.proxies)
         return self
 
     async def __aexit__(self, *args):
@@ -141,8 +142,8 @@ def _filter_emails(all_emails):
     return filtered_emails
 
 
-async def get_new_email() -> list:
-    async with AsyncTempMail() as temp_mail:
+async def get_new_email(proxies=None) -> list:
+    async with AsyncTempMail(proxies=proxies) as temp_mail:
         response_json = await temp_mail.fetch_new_email_address()
 
         logger.debug(f"Email: {response_json['mailbox']}")
@@ -151,8 +152,8 @@ async def get_new_email() -> list:
         return [response_json["mailbox"], response_json["token"]]
 
 
-async def get_tempmail_confirmation_code(token: str) -> str:
-    async with AsyncTempMail() as temp_mail:
+async def get_tempmail_confirmation_code(token: str, proxies=None) -> str:
+    async with AsyncTempMail(proxies=proxies) as temp_mail:
         logger.debug("Waiting for the confirmation code...")
         while True:
             new_emails = _filter_emails(await temp_mail.fetch_all_emails(token))
