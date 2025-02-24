@@ -141,6 +141,9 @@ async def sign_up(browser: Browser, email: str, token: Optional[str] = None) -> 
 
         code = code_search.group(0)
     else:
+        if token is None:
+            logger.error("Token is required for temp mail but was not provided")
+            return None
         code = await get_tempmail_confirmation_code(token)
 
     logger.info("Got verification code: " + code)

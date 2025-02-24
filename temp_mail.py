@@ -28,16 +28,13 @@ class Attachment:
         }
         response_queue = asyncio.Queue()
 
-        async def perform_request():
-            def content_callback(chunk):
-                response_queue.put_nowait(chunk)
+        def content_callback(chunk):
+            response_queue.put_nowait(chunk)
 
-            response = await self.temp_mail_class.session.get(
-                url=url, headers=headers, content_callback=content_callback
-            )
-            await response_queue.put(None)
-
-        stream_task = asyncio.create_task(perform_request())
+        await self.temp_mail_class.session.get(
+            url=url, headers=headers, content_callback=content_callback
+        )
+        await response_queue.put(None)
 
         while True:
             chunk = await response_queue.get()
@@ -149,7 +146,7 @@ async def get_new_email() -> list:
         response_json = await temp_mail.fetch_new_email_address()
 
         logger.debug(f"Email: {response_json['mailbox']}")
-        logger.debug(f"Token: {response_json['token']}")
+        # logger.debug(f"Token: {response_json['token']}")
 
         return [response_json["mailbox"], response_json["token"]]
 

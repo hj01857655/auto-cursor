@@ -25,7 +25,6 @@ async def fetch_email(imap_server: str, port: int, user: str, password: str, mai
     def check_emails():
         """Fetch and check for new unseen emails synchronously (to be run in a thread)."""
         try:
-            logger.info("Checking for new emails...")
             with imaplib.IMAP4_SSL(imap_server, port) as mail:
                 mail.login(user, password)
                 mail.select(mailbox)
@@ -67,6 +66,7 @@ async def fetch_email(imap_server: str, port: int, user: str, password: str, mai
         return None
 
     async def wait_for_email():
+        logger.info("Waiting for email...")
         """Keep checking emails every second until timeout is reached."""
         start_time = asyncio.get_event_loop().time()
         while (asyncio.get_event_loop().time() - start_time) < timeout:
