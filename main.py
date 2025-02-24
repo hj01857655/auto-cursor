@@ -166,7 +166,7 @@ def exit_with_confirmation(exit_code: int = 1):
 def check_nekobox_availability():
     if os.getenv("USE_NEKOBOX_IF_AVAILABLE", "false").lower() == "true":
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            result = sock.connect_ex(("127.0.0.1", 10808))
+            result = sock.connect_ex(("127.0.0.1", int(os.getenv("NEKOBOX_PORT", 2080))))
             if result == 0:
                 logger.info("Nekobox is available, using it for proxy.")
                 return True
