@@ -9,10 +9,15 @@ A cleaner version of [cursor-auto-free](https://github.com/chengazhen/cursor-aut
 ## 🔹 Requirements  
 Ensure you have the following installed before running the script:  
 - **Cursor** (obviously)  
-- **Google Chrome** (or any other browser compatible with `zendriver`)  
-- **[uv](https://docs.astral.sh/uv/getting-started/installation/)**  
+- **Google Chrome** (or any other chromium-based browser compatible with `zendriver`)  
+- **[uv](https://docs.astral.sh/uv/getting-started/installation/)** 
 
----
+Also ensure that you have **admin/sudo permissions** on the system you're running the script on. The script **requires** those to reset your Cursor machine ID.
+
+## 🔹 Compatibility  
+- **Tested on**: Windows 11, Debian-based Linux
+- **Preferred Cursor version**: Above 0.45.0
+
 
 ## 🚀 Usage  
 
@@ -36,7 +41,7 @@ cp .env.example .env
   ```env
   USE_TEMPMAIL=False
   ```
-- Provide **IMAP credentials** of your self-hosted mail server.  
+- Provide **IMAP credentials** of your self-hosted mail server. We recommend using [docker-mailserver](https://github.com/docker-mailserver/docker-mailserver) as it's the one of the most lightweight and easy to manage solutions. 
 - Ensure `postfix-regexp.cf` rules capture emails sent to addresses following `{EMAIL_ADDRESS_PREFIX}{random_letters}@DOMAIN`. So, if your domain is `example.com`, and your EMAIL_ADDRESS_PREFIX is `cur`, then the line should be: `/^cur[a-zA-Z0-9]*@example.com/ centralised-email@example.com`
 
 ---
@@ -57,8 +62,6 @@ It will then start the browser and begin the signup process.
 You will need to **manually click on the Turnstile Captcha twice**.
 
 After that is done, the sign up process will be completed automatically.
-
----
 
 ## ⚠️ Warning  
 - This script is **not affiliated with Cursor or its developers**.  
