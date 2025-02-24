@@ -190,7 +190,10 @@ async def main():
 
     try:
         browser = await zd.start(
-            lang="en_US", headless=False, browser_executable_path=os.getenv("BROWSER_PATH", None),
+            lang="en_US", 
+            headless=False, 
+            browser_executable_path=os.getenv("BROWSER_PATH", None),
+            no_sandbox=os.getenv("NO_SANDBOX", "false").lower() == "true"
         )
     except Exception as error:
         traceback.print_exc()
