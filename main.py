@@ -6,6 +6,7 @@ import socket
 import string
 import sys
 import ctypes
+import traceback
 from typing import Optional
 
 import zendriver as zd
@@ -187,9 +188,14 @@ async def main():
     else:
         proxies = None
 
-    browser = await zd.start(
-        lang="en_US", headless=False, browser_executable_path=os.getenv("BROWSER_PATH", None),
-    )
+    try:
+        browser = await zd.start(
+            lang="en_US", headless=False, browser_executable_path=os.getenv("BROWSER_PATH", None),
+        )
+    except Exception as error:
+        traceback.print_exc()
+        logger.critical(f"Failed to start the browser.")
+        exit_with_confirmation()
 
     if os.getenv("USE_TEMPMAIL", "false").lower() == "true":
         try:
