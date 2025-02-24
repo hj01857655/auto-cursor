@@ -10,6 +10,7 @@ from typing import Tuple
 
 from loguru import logger
 
+from reset_helpers.linux import reset_machine_ids_linux
 from reset_helpers.windows import reset_machine_ids_windows
 # ---------------------- Cursor Paths ----------------------
 
@@ -41,10 +42,8 @@ def get_cursor_paths() -> Tuple[str, str]:
         for base_path in paths["Linux"]:
             if os.path.exists(os.path.join(base_path, "package.json")):
                 return os.path.join(base_path, "package.json"), os.path.join(base_path, "out/main.js")
-        raise OSError("Cursor installation not found on Linux.")
-
-    base_path = paths[os_type]
-    return os.path.join(base_path, "package.json"), os.path.join(base_path, "out/main.js")
+    
+    return "", ""
 
 
 # ---------------------- Version Checking ----------------------
@@ -135,6 +134,13 @@ def run_reset_script() -> bool:
             return False
         return True
 
+    if system == "Linux":
+        success = reset_machine_ids_linux()
+        if not success:
+            logger.error("Linux machine ID reset failed")
+            return False
+        return True
+
     base_url = "https://aizaozao.com/accelerate.php/https://raw.githubusercontent.com/yuaotian/go-cursor-help/refs/heads/master/scripts/run"
 
     commands = {
@@ -198,14 +204,14 @@ def reset_machine_ids() -> bool:
         pkg_path, main_path = get_cursor_paths()
         version = read_version(pkg_path)
 
-        if not version or not is_version_valid(version):
-            logger.error("Failed to determine version, aborting.")
-            return False
+        if not version:
+            logger.error("Failed to determine version, assuming it's at least 0.45.0.")
+            version = "0.45.0"
 
         logger.info(f"Detected Cursor version: {version}")
 
         if is_version_valid(version, min_version="0.45.0"):
-            logger.info("Using newer script-based method. (running random chinese bullshit witn admin priviledges 🔥🔥🔥)")
+            logger.info("Using newer script-based method.")
             return run_reset_script()
         else:
             logger.info("Using legacy file modification method.")
