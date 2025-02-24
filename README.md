@@ -3,7 +3,7 @@
 A cleaner version of [cursor-auto-free](https://github.com/chengazhen/cursor-auto-free).  
 
 ## 🔹 Differences  
-- **Email Handling**: Supports automatic temp-mail, Cloudflare email proxying and bring-your-own-mailserver. 
+- **Email Handling**: Supports automatic temp mail and bring-your-own-mailserver. 
 - **Captcha Handling**: Requires **manual** Turnstile Captcha validation (twice).  
 
 ## 🔹 Requirements  
@@ -52,6 +52,11 @@ Once setup is complete, start the script using:
 ```bash
 uv run main.py
 ```
+It will then start the browser and begin the signup process.
+
+You will need to **manually click on the Turnstile Captcha twice**.
+
+After that is done, the sign up process will be completed automatically.
 
 ---
 
