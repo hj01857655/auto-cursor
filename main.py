@@ -32,28 +32,33 @@ settings_url = "https://www.cursor.com/settings"
 
 def request_admin_elevation():
     """Request admin privileges if not already running as admin."""
-    if check_admin():
-        return True
-        
-    logger.info("Requesting administrator privileges...")
-    try:
-        if getattr(sys, 'frozen', False):
-            # If running as a frozen executable
-            script = sys.executable
-            args = sys.argv[1:]
-        else:
-            # If running as a Python script
-            script = sys.executable
-            args = [sys.argv[0]] + sys.argv[1:]
+    if os.name == 'nt':  # Windows
+        if check_admin():
+            return True
+        logger.info("Requesting administrator privileges...")
+        try:
+            if getattr(sys, 'frozen', False):
+                # If running as a frozen executable
+                script = sys.executable
+                args = sys.argv[1:]
+            else:
+                # If running as a Python script
+                script = sys.executable
+                args = [sys.argv[0]] + sys.argv[1:]
             
-        shell32 = ctypes.windll.shell32
-        ret = shell32.ShellExecuteW(None, "runas", script, f'"{" ".join(args)}"', None, 1)
-        if ret <= 32:  # ShellExecute returns a value <= 32 on error
-            logger.error("Failed to elevate privileges. Error code: {}", ret)
+            shell32 = ctypes.windll.shell32
+            ret = shell32.ShellExecuteW(None, "runas", script, f'"{" ".join(args)}"', None, 1)
+            if ret <= 32:  # ShellExecute returns a value <= 32 on error
+                logger.error("Failed to elevate privileges. Error code: {}", ret)
+                return False
+            return True
+        except Exception as e:
+            logger.error("Failed to request administrator privileges: {}", e)
             return False
-        return True
-    except Exception as e:
-        logger.error("Failed to request administrator privileges: {}", e)
+    else:  # Unix-like systems
+        if os.geteuid() == 0:
+            return True
+        logger.info("This script requires root privileges. Please run it with 'sudo'.")
         return False
 
 
@@ -153,14 +158,11 @@ async def main():
     logger.info("Starting...")
 
     # Check for admin rights at startup
-    if not check_admin():
-        if not request_admin_elevation():
-            logger.error("This program requires administrator privileges.")
-            sys.exit(1)
-        sys.exit(0)  # Exit the non-elevated instance
+    if not request_admin_elevation():
+        sys.exit(1)
 
     browser = await zd.start(
-        lang="en_US", headless=False,
+        lang="en_US", headless=False, browser_executable_path=os.getenv("BROWSER_PATH", None),
     )
 
     if os.getenv("USE_TEMPMAIL", "false").lower() == "true":

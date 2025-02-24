@@ -17,7 +17,7 @@ Ensure you have the following installed before running the script:
 ## 🚀 Usage  
 
 ### 1️⃣ Configure Environment  
-Copy the example configuration file and update it with your email domain and IMAP details:  
+Copy the example configuration file:  
 ```bash
 cp .env.example .env
 ```
@@ -37,7 +37,7 @@ cp .env.example .env
   USE_TEMPMAIL=False
   ```
 - Provide **IMAP credentials** of your self-hosted mail server.  
-- Ensure `postfix-regex.cf` rules capture emails sent to addresses following `{EMAIL_ADDRESS_PREFIX}{random_letters}@DOMAIN`.  
+- Ensure `postfix-regexp.cf` rules capture emails sent to addresses following `{EMAIL_ADDRESS_PREFIX}{random_letters}@DOMAIN`. So, if your domain is `example.com`, and your EMAIL_ADDRESS_PREFIX is `cur`, then the line should be: `/^cur[a-zA-Z0-9]*@example.com/ centralised-email@example.com`
 
 ---
 
