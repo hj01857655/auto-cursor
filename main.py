@@ -56,10 +56,7 @@ def request_admin_elevation():
             logger.error("Failed to request administrator privileges: {}", e)
             return False
     else:  # Unix-like systems
-        if os.geteuid() == 0:
-            return True
-        logger.info("This script requires root privileges. Please run it with 'sudo'.")
-        return False
+        return True
 
 
 async def sign_up(browser: Browser, email: str, token: Optional[str] = None) -> Optional[str]:
