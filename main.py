@@ -51,7 +51,7 @@ def request_admin_elevation():
             if ret <= 32:  # ShellExecute returns a value <= 32 on error
                 logger.error("Failed to elevate privileges. Error code: {}", ret)
                 return False
-            return True
+            return False
         except Exception as e:
             logger.error("Failed to request administrator privileges: {}", e)
             return False
@@ -78,6 +78,10 @@ async def sign_up(browser: Browser, email: str, token: Optional[str] = None) -> 
     password = ''.join(random.choices(string.ascii_uppercase + string.digits + string.punctuation, k=12))
 
     logger.debug(f"First name: {first_name} | Last name: {last_name} | Password: {password} | Email: {email}")
+
+    await tab
+
+    await tab.wait(1)
 
     logger.info("Inputting fields...")
     first_name_box = await tab.select("input[name='first_name']")
