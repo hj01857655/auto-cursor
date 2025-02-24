@@ -10,7 +10,10 @@ import ctypes
 from typing import Tuple, Dict, Any
 
 import psutil
-import winreg
+try:
+    import winreg
+except ImportError:
+    pass # since it's not available on linux
 from loguru import logger
 
 
