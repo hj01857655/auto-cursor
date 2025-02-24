@@ -54,7 +54,7 @@ def read_version(pkg_path: str) -> str:
         with open(pkg_path, encoding="utf-8") as f:
             return json.load(f)["version"]
     except Exception as e:
-        logger.error(f"Failed to read version: {e}")
+        logger.warning(f"Failed to read version: {e}")
         return ""
 
 
@@ -205,7 +205,7 @@ def reset_machine_ids() -> bool:
         version = read_version(pkg_path)
 
         if not version:
-            logger.error("Failed to determine version, assuming it's at least 0.45.0.")
+            logger.warning("Failed to determine version, assuming it's at least 0.45.0.")
             version = "0.45.0"
 
         logger.info(f"Detected Cursor version: {version}")

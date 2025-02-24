@@ -28,17 +28,6 @@ def get_current_user():
     return os.environ.get("USER", "unknown")
 
 
-def check_permissions():
-    """
-    Checks that the script is being run on Linux.
-    Exits if not.
-    (Note: This module does not automatically re-run the entire script as root;
-    only the commands that require it are wrapped.)
-    """
-    if os.uname().sysname != "Linux":
-        logger.error("This script is only supported on Linux.")
-        sys.exit(1)
-
 
 def backup_system_id(backup_dir):
     """
@@ -257,7 +246,6 @@ def reset_machine_ids_linux():
     and displays a basic file tree. It is the main function
     to reset machine IDs on Linux.
     """
-    check_permissions()
     current_user = get_current_user()
     # Define important paths (using XDG_CONFIG_HOME if set, otherwise $HOME/.config)
     home = os.path.expanduser("~")
@@ -266,6 +254,13 @@ def reset_machine_ids_linux():
     backup_dir = os.path.join(config_base, "Cursor", "User", "globalStorage", "backups")
 
     telemetry_data = generate_new_config(storage_file, backup_dir, current_user)
+    
+    logger.warning("==================================================")
+    logger.warning("This will reset your machine ID and telemetry IDs.")
+    logger.warning("For that we need sudo access.")
+    logger.warning("Please enter your password below.")
+    logger.warning("==================================================")
+
     if telemetry_data is None:
         logger.error("New configuration generation failed.")
         return False
