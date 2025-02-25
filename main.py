@@ -155,7 +155,10 @@ async def sign_up(browser: Browser, email: str, token: Optional[str] = None) -> 
 
     for cookie in cookies:
         if cookie.name == "WorkosCursorSessionToken" and cookie.value:
-            return cookie.value.split("%3A%3A")[1]
+            if os.getenv("NO_INSTALL", "false").lower() == "false":
+                return cookie.value.split("%3A%3A")[1]
+            else:
+                return cookie.value
 
     return None
 
@@ -216,6 +219,10 @@ async def main():
         exit_with_confirmation()
 
     await browser.stop()
+    
+    if os.getenv("NO_INSTALL", "false").lower() == "true":
+        logger.info("Generated session token is: " + str(session_token))
+        exit_with_confirmation(0)
 
     logger.info("Updating the local Cursor database...")
     success = await update_auth(email, session_token, session_token)
