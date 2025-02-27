@@ -6,7 +6,6 @@ import socket
 import string
 import sys
 import ctypes
-import traceback
 from typing import Optional
 
 import zendriver as zd
@@ -25,12 +24,10 @@ if os.path.exists(".env"):
 else:
     logger.error("No .env file found")
     logger.info("Create one using .env.example")
-    exit(0)
+    exit(1)
 
 login_url = "https://authenticator.cursor.sh"
 sign_up_url = "https://authenticator.cursor.sh/sign-up"
-settings_url = "https://www.cursor.com/settings"
-
 
 def request_admin_elevation():
     """Request admin privileges if not already running as admin."""
@@ -199,8 +196,8 @@ async def main():
             no_sandbox=os.getenv("NO_SANDBOX", "false").lower() == "true"
         )
     except Exception as error:
-        traceback.print_exc()
-        logger.critical(f"Failed to start the browser.")
+        logger.exception(error)
+        logger.critical("Failed to start the browser.")
         exit_with_confirmation()
 
     if os.getenv("USE_TEMPMAIL", "false").lower() == "true":
@@ -210,7 +207,7 @@ async def main():
             logger.critical(f"Failed to get a temporary email address: {error}")
             exit_with_confirmation()
     else:
-        email = os.getenv('EMAIL_ADDRESS_PREFIX', 'cur') + "".join(random.choices(string.ascii_lowercase, k=6)) + "@" + os.getenv("DOMAIN", "example.com")
+        email = os.getenv('EMAIL_ADDRESS_PREFIX', 'cur') + "".join(random.choices(string.ascii_lowercase + string.digits, k=random.randint(4, 8))) + "@" + os.getenv("DOMAIN", "example.com")
         token = None
 
     session_token = await sign_up(browser, email, token)
@@ -225,7 +222,7 @@ async def main():
         exit_with_confirmation(0)
 
     logger.info("Updating the local Cursor database...")
-    success = await update_auth(email, session_token, session_token)
+    success = await update_auth(email, session_token, session_token)  # type: ignore
     if not success:
         logger.error("Couldn't update the local Cursor database.")
         exit_with_confirmation()
