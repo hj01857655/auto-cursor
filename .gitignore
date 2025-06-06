@@ -5,3 +5,13 @@ __pycache__
 .venv
 .mypy_cache
 .ruff_cache
+
+# 账户信息文件（包含敏感信息）
+cursor_accounts.json
+
+# 日志文件
+*.log
+
+# 临时文件
+*.tmp
+*.temp

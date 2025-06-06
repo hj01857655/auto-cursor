@@ -12,6 +12,14 @@ from loguru import logger
 
 from reset_helpers.linux import reset_machine_ids_linux
 from reset_helpers.windows import reset_machine_ids_windows
+
+# ---------------------- Constants ----------------------
+MIN_VERSION = "0.45.0"
+DEFAULT_ENCODING = "utf-8"
+SCRIPT_BASE_URL = "https://aizaozao.com/accelerate.php/https://raw.githubusercontent.com/yuaotian/go-cursor-help/refs/heads/master/scripts/run"
+
+# 缓存平台信息，避免重复调用
+CURRENT_PLATFORM = platform.system()
 # ---------------------- Cursor Paths ----------------------
 
 def get_db_path() -> str:
@@ -27,22 +35,20 @@ def get_db_path() -> str:
 
 def get_cursor_paths() -> Tuple[str, str]:
     """Get Cursor installation paths based on the OS."""
-    os_type = platform.system()
-
     paths = {
         "Darwin": "/Applications/Cursor.app/Contents/Resources/app",
         "Windows": os.path.join(os.getenv("LOCALAPPDATA", ""), "Programs", "Cursor", "resources", "app"),
         "Linux": ["/opt/Cursor/resources/app", "/usr/share/cursor/resources/app"]
     }
 
-    if os_type not in paths:
-        raise OSError(f"Unsupported OS: {os_type}")
+    if CURRENT_PLATFORM not in paths:
+        raise OSError(f"Unsupported OS: {CURRENT_PLATFORM}")
 
-    if os_type == "Linux":
+    if CURRENT_PLATFORM == "Linux":
         for base_path in paths["Linux"]:
             if os.path.exists(os.path.join(base_path, "package.json")):
                 return os.path.join(base_path, "package.json"), os.path.join(base_path, "out/main.js")
-    
+
     return "", ""
 
 
@@ -51,7 +57,7 @@ def get_cursor_paths() -> Tuple[str, str]:
 def read_version(pkg_path: str) -> str:
     """Reads and returns the Cursor version from `package.json`."""
     try:
-        with open(pkg_path, encoding="utf-8") as f:
+        with open(pkg_path, encoding=DEFAULT_ENCODING) as f:
             return json.load(f)["version"]
     except Exception as e:
         logger.warning(f"Failed to read version: {e}")
@@ -89,7 +95,7 @@ def modify_js_file(main_path: str) -> bool:
         original_stat = os.stat(main_path)
         tmp_path = None
 
-        with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp_file, open(main_path, "r", encoding="utf-8") as main_file:
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmp_file, open(main_path, "r", encoding=DEFAULT_ENCODING) as main_file:
             content = main_file.read()
 
             patterns = {
@@ -124,48 +130,45 @@ def modify_js_file(main_path: str) -> bool:
 
 def run_reset_script() -> bool:
     """Runs the appropriate reset script based on the operating system with real-time output streaming and UTF-8 encoding."""
-    system = platform.system()
-    logger.info(f"Detected OS: {system}")
-    
-    if system == "Windows":
+    logger.info(f"Detected OS: {CURRENT_PLATFORM}")
+
+    if CURRENT_PLATFORM == "Windows":
         success = reset_machine_ids_windows()
         if not success:
             logger.error("Windows machine ID reset failed")
             return False
         return True
 
-    if system == "Linux":
+    if CURRENT_PLATFORM == "Linux":
         success = reset_machine_ids_linux()
         if not success:
             logger.error("Linux machine ID reset failed")
             return False
         return True
 
-    base_url = "https://aizaozao.com/accelerate.php/https://raw.githubusercontent.com/yuaotian/go-cursor-help/refs/heads/master/scripts/run"
-
     commands = {
-        "Darwin": f"curl -fsSL {base_url}/cursor_mac_id_modifier.sh | sudo bash",
-        "Linux": f"curl -fsSL {base_url}/cursor_linux_id_modifier.sh | sudo bash",
+        "Darwin": f"curl -fsSL {SCRIPT_BASE_URL}/cursor_mac_id_modifier.sh | sudo bash",
+        "Linux": f"curl -fsSL {SCRIPT_BASE_URL}/cursor_linux_id_modifier.sh | sudo bash",
         "Windows": [
             "powershell", "-ExecutionPolicy", "Bypass", "-NoProfile",
-            "-Command", f"Start-Process powershell -Verb RunAs -ArgumentList \"irm {base_url}/cursor_win_id_modifier.ps1 | iex\""
+            "-Command", f"Start-Process powershell -Verb RunAs -ArgumentList \"irm {SCRIPT_BASE_URL}/cursor_win_id_modifier.ps1 | iex\""
         ]
     }
 
-    if system not in commands:
-        logger.error(f"Unsupported Operating System: {system}")
+    if CURRENT_PLATFORM not in commands:
+        logger.error(f"Unsupported Operating System: {CURRENT_PLATFORM}")
         return False
 
-    logger.info(f"Executing reset script for {system}...")
+    logger.info(f"Executing reset script for {CURRENT_PLATFORM}...")
 
     try:
         process = subprocess.Popen(
-            commands[system],
-            shell=(system != "Windows"),  # Use `shell=True` only for Unix-based OS
+            commands[CURRENT_PLATFORM],
+            shell=(CURRENT_PLATFORM != "Windows"),  # Use `shell=True` only for Unix-based OS
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            encoding="utf-8",  # Force UTF-8 Encoding
+            encoding=DEFAULT_ENCODING,  # Force UTF-8 Encoding
             errors="replace"  # Replace unsupported characters instead of crashing
         )
 
@@ -180,7 +183,7 @@ def run_reset_script() -> bool:
         process.wait()
 
         if process.returncode == 0:
-            logger.info(f"Successfully executed reset script on {system}.")
+            logger.info(f"Successfully executed reset script on {CURRENT_PLATFORM}.")
             return True
         else:
             logger.error(f"Reset script failed with exit code {process.returncode}.")
@@ -205,12 +208,12 @@ def reset_machine_ids() -> bool:
         version = read_version(pkg_path)
 
         if not version:
-            logger.warning("Failed to determine version, assuming it's at least 0.45.0.")
-            version = "0.45.0"
+            logger.warning(f"Failed to determine version, assuming it's at least {MIN_VERSION}.")
+            version = MIN_VERSION
 
         logger.info(f"Detected Cursor version: {version}")
 
-        if is_version_valid(version, min_version="0.45.0"):
+        if is_version_valid(version, min_version=MIN_VERSION):
             logger.info("Using newer script-based method.")
             return run_reset_script()
         else:

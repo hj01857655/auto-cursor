@@ -7,18 +7,18 @@ from loguru import logger
 
 
 def get_db_path():
-    """ Retrieves the Cursor database path based on the operating system. """
+    """根据操作系统获取 Cursor 数据库路径"""
 
-    if sys.platform == "win32":  # Windows
+    if sys.platform == "win32":  # Windows 系统
         appdata = os.getenv("APPDATA")
         if not appdata:
             raise EnvironmentError("APPDATA environment variable is not set")
         return os.path.join(appdata, "Cursor", "User", "globalStorage", "state.vscdb")
 
-    elif sys.platform == "darwin":  # macOS
+    elif sys.platform == "darwin":  # macOS 系统
         return os.path.expanduser("~/Library/Application Support/Cursor/User/globalStorage/state.vscdb")
 
-    elif sys.platform == "linux":  # Linux
+    elif sys.platform == "linux":  # Linux 系统
         return os.path.expanduser("~/.config/Cursor/User/globalStorage/state.vscdb")
 
     else:
@@ -27,18 +27,18 @@ def get_db_path():
 
 def gracefully_exit_cursor(timeout: int = 5) -> bool:
     """
-    Gracefully terminates Cursor processes with a timeout.
-    
+    优雅地终止 Cursor 进程（带超时机制）
+
     Args:
-        timeout (int): Time to wait for processes to terminate naturally (seconds)
+        timeout (int): 等待进程自然终止的时间（秒）
     Returns:
-        bool: True if all processes were terminated successfully
+        bool: 如果所有进程都成功终止则返回 True
     """
     try:
-        logger.info("Starting Cursor process termination...")
+        logger.info("开始终止 Cursor 进程...")
         cursor_processes = []
-        
-        # Collect all Cursor processes
+
+        # 收集所有 Cursor 进程
         for proc in psutil.process_iter(['pid', 'name']):
             try:
                 if proc.info['name'].lower() in ['cursor.exe', 'cursor']:
@@ -47,18 +47,18 @@ def gracefully_exit_cursor(timeout: int = 5) -> bool:
                 continue
 
         if not cursor_processes:
-            logger.info("No running Cursor processes found")
+            logger.info("未发现运行中的 Cursor 进程")
             return True
 
-        # Gracefully request process termination
+        # 优雅地请求进程终止
         for proc in cursor_processes:
             try:
                 if proc.is_running():
-                    proc.terminate()  # Send termination signal
+                    proc.terminate()  # 发送终止信号
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
 
-        # Wait for processes to terminate naturally
+        # 等待进程自然终止
         start_time = time.time()
         while time.time() - start_time < timeout:
             still_running = []
@@ -68,46 +68,47 @@ def gracefully_exit_cursor(timeout: int = 5) -> bool:
                         still_running.append(proc)
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     continue
-            
+
             if not still_running:
-                logger.info("All Cursor processes terminated successfully")
+                logger.info("所有 Cursor 进程已成功终止")
                 return True
-                
-            time.sleep(0.5)  # Small delay between checks
-            
-        # If processes are still running after timeout
+
+            time.sleep(0.5)  # 检查间隔的小延迟
+
+        # 如果超时后进程仍在运行
         if still_running := [str(p.pid) for p in still_running]:
-            logger.warning(f"The following processes did not terminate within timeout: {', '.join(still_running)}")
+            logger.warning(f"以下进程在超时时间内未能终止: {', '.join(still_running)}")
             return False
-            
+
         return True
 
     except Exception as e:
-        logger.error(f"Error while terminating Cursor processes: {e}")
+        logger.error(f"终止 Cursor 进程时发生错误: {e}")
         return False
 
 
 async def update_auth(email: str, access_token: str, refresh_token: str) -> bool:
     """
-    Updates Cursor authentication details in the database.
+    更新 Cursor 数据库中的认证信息
 
-    :param email: New email address
-    :param access_token: New access token
-    :param refresh_token: New refresh token
-    :return: bool - True if the update is successful, False otherwise.
+    :param email: 新的邮箱地址
+    :param access_token: 新的访问令牌
+    :param refresh_token: 新的刷新令牌
+    :return: bool - 更新成功返回 True，否则返回 False
     """
-    # First, gracefully terminate any running Cursor instances
+    # 首先，优雅地终止所有运行中的 Cursor 实例
     if not gracefully_exit_cursor():
-        logger.warning("Could not terminate all Cursor processes gracefully")
-        # Continue anyway as we might still be able to update the database
+        logger.warning("无法优雅地终止所有 Cursor 进程")
+        # 继续执行，因为我们仍可能能够更新数据库
 
     db_path = get_db_path()
 
     updates = {
-        "cursorAuth/cachedSignUpType": "Auth_0"  # Always update signup type
+        "cursorAuth/cachedSignUpType": "Auth_0",  # 始终更新注册类型
+        "cursorAuth/stripeMembershipType": "free_trial"  # 设置会员类型为免费试用
     }
 
-    # Add provided values to the updates dictionary
+    # 将提供的值添加到更新字典中
     if email is not None:
         updates["cursorAuth/cachedEmail"] = email
     if access_token is not None:
@@ -116,7 +117,7 @@ async def update_auth(email: str, access_token: str, refresh_token: str) -> bool
         updates["cursorAuth/refreshToken"] = refresh_token
 
     if not updates:
-        logger.warning("No values provided for update.")
+        logger.warning("未提供任何更新值")
         return False
 
     try:
@@ -124,23 +125,25 @@ async def update_auth(email: str, access_token: str, refresh_token: str) -> bool
             cursor = conn.cursor()
 
             for key, value in updates.items():
-                # Check if key exists
+                # 检查键是否存在
                 cursor.execute("SELECT COUNT(*) FROM itemTable WHERE key = ?", (key,))
                 exists = cursor.fetchone()[0] > 0
 
                 if exists:
+                    # 更新现有记录
                     cursor.execute("UPDATE itemTable SET value = ? WHERE key = ?", (value, key))
-                    logger.debug(f"Updated: {key.split('/')[-1]}")
+                    logger.debug(f"已更新: {key.split('/')[-1]}")
                 else:
+                    # 插入新记录
                     cursor.execute("INSERT INTO itemTable (key, value) VALUES (?, ?)", (key, value))
-                    logger.debug(f"Inserted: {key.split('/')[-1]}")
+                    logger.debug(f"已插入: {key.split('/')[-1]}")
 
-            conn.commit()
+            conn.commit()  # 提交所有更改
             return True
 
     except sqlite3.Error as e:
-        logger.error(f"Database error: {e}")
+        logger.error(f"数据库错误: {e}")
     except Exception as e:
-        logger.error(f"Unexpected error: {e}")
+        logger.error(f"意外错误: {e}")
 
     return False
