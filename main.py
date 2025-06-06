@@ -977,21 +977,233 @@ async def sign_up(browser: Browser, email: str, temp_email: str) -> Optional[Tup
 
     return None
 
-async def sign_in(browser: Browser, email: str, password: str) -> Optional[str]:
+async def sign_in(browser: Browser, email: str) -> Optional[dict]:
     """
-    登录到 Cursor 账户
+    登录到 Cursor 账户（使用验证码方式）
 
     Args:
         browser: 浏览器实例
         email: 邮箱地址
-        password: 密码
 
     Returns:
-        登录成功时返回 session token，失败时返回 None
+        登录成功时返回包含完整信息的字典，失败时返回 None
+        字典包含: email, session_token, long_term_tokens, trial_info, usage_info, user_id
     """
-    # TODO: 实现登录逻辑
-    logger.info("sign_in method is not implemented yet")
-    return None
+    logger.info(f"【登录】开始登录过程，邮箱: {email}")
+    
+    # 打开登录页面
+    tab = await browser.get(login_url)
+    
+    # 等待页面加载后再检查title是否为"请稍候"
+    await asyncio.sleep(3)
+    try:
+        title = tab.title
+        if "请稍候" in title:
+            logger.error("【登录中断】页面加载后title仍为'请稍候'，自动退出登录流程并关闭浏览器")
+            await browser.stop()
+            return None
+    except Exception as e:
+        logger.warning(f"【登录检查】获取页面title失败: {e}")
+    
+    # 等待页面加载
+    await tab
+    
+    # 添加随机延迟，模拟人类行为
+    random_delay = random.uniform(1, 2)
+    logger.debug(f"【人类模拟】等待 {random_delay:.1f} 秒...")
+    await asyncio.sleep(random_delay)
+    
+    # 输入邮箱
+    logger.info("【登录】输入邮箱...")
+    try:
+        email_box = await tab.select("input[name='email']")
+        await email_box.send_keys(email)
+    except Exception as e:
+        logger.error(f"【登录失败】无法找到邮箱输入框: {e}")
+        return None
+    
+    await asyncio.sleep(1)
+    
+    # 点击提交按钮
+    logger.info("【登录】提交邮箱...")
+    try:
+        submit_button = await tab.select("button[type='submit']")
+        await submit_button.click()
+    except Exception as e:
+        logger.error(f"【登录失败】无法找到或点击提交按钮: {e}")
+        return None
+
+    # 等待页面加载，然后直接选择验证码登录方式
+    await asyncio.sleep(3)
+
+    logger.info("【登录】选择验证码登录方式...")
+    try:
+        # 直接点击"Email sign-in code"按钮，跳过密码输入
+        email_code_button = await tab.select("button[name='intent'][value='magic-code']")
+        await email_code_button.click()
+        logger.info("【登录】已选择验证码登录方式")
+    except Exception as e:
+        logger.error(f"【登录失败】无法找到或点击验证码登录按钮: {e}")
+        return None
+    
+    # 等待登录完成
+    logger.info("【登录】等待登录完成...")
+    await tab.wait(5)
+    
+    # 检查是否需要输入验证码
+    try:
+        # 检查页面内容，判断是否需要输入验证码
+        page_content = await tab.get_content()
+        
+        # 检查是否有错误信息
+        error_patterns = [
+            "incorrect password", "invalid email", "error", "not found", "invalid credentials"
+        ]
+        found_errors = []
+        for pattern in error_patterns:
+            if pattern in page_content.lower():
+                found_errors.append(pattern)
+        
+        if found_errors:
+            logger.error(f"【登录失败】检测到错误: {', '.join(found_errors)}")
+            logger.debug(f"【登录调试】页面内容片段: {page_content[:500]}...")
+            return None
+        
+        # 检查是否需要验证码
+        if "verification" in page_content.lower() or "code" in page_content.lower() or "token" in page_content.lower():
+            logger.info("【登录】检测到需要输入验证码")
+            
+            # 获取验证码
+            logger.info("【验证码获取】开始获取验证码邮件...")
+            code = None
+            retry_count = 0
+            max_retries = 5
+            
+            # 登录时需要使用配置的临时邮箱接收验证码，而不是登录邮箱本身
+            temp_email = os.getenv("TEMPMAIL_PLUS_EMAIL", "uhbedk@mailto.plus").strip()
+            
+            while not code and retry_count < max_retries:
+                try:
+                    # 使用 TempMail.Plus 获取验证码
+                    code = await get_tempmail_plus_confirmation_code(temp_email)
+                    
+                    if code:
+                        logger.info(f"【验证码获取】成功获取验证码: {code}")
+                        break
+                    else:
+                        retry_count += 1
+                        logger.warning(f"【验证码获取】未找到验证码，第{retry_count}次重试...")
+                        await asyncio.sleep(5)
+                except Exception as e:
+                    retry_count += 1
+                    logger.error(f"【验证码获取】获取验证码出错: {e}，第{retry_count}次重试...")
+                    await asyncio.sleep(5)
+            
+            # 确保验证码成功获取
+            if not code:
+                logger.error("【登录中断】多次尝试后仍未能获取验证码，无法继续登录流程")
+                await browser.stop()
+                return None
+            
+            # 等待验证码输入框出现
+            code_input_box = None
+            input_retry_count = 0
+            max_input_retries = 10
+            
+            logger.warning("【登录】等待验证码输入框出现...")
+            while not code_input_box and input_retry_count < max_input_retries:
+                try:
+                    code_input_box = await tab.select("input[name='code']", timeout=1)
+                    if code_input_box:
+                        logger.info("【验证码输入】找到验证码输入框")
+                    else:
+                        input_retry_count += 1
+                        logger.warning(f"【验证码输入】未找到验证码输入框，第{input_retry_count}次重试...")
+                        await asyncio.sleep(1)
+                except Exception:
+                    input_retry_count += 1
+                    logger.warning(f"【验证码输入】查找验证码输入框失败，第{input_retry_count}次重试...")
+                    await asyncio.sleep(1)
+            
+            if not code_input_box:
+                logger.error("【登录中断】未能找到验证码输入框，无法继续登录流程")
+                await browser.stop()
+                return None
+            
+            # 输入验证码
+            logger.info(f"【验证码输入】准备输入验证码: {code}")
+            await code_input_box.send_keys(code)
+            
+            # 提交验证码
+            try:
+                submit_button = await tab.select("button[type='submit']")
+                await submit_button.click()
+                logger.info("【验证码】已提交验证码")
+                
+                # 等待验证完成
+                await tab.wait(5)
+            except Exception as e:
+                logger.error(f"【登录失败】提交验证码失败: {e}")
+                return None
+        
+    except Exception as error_check:
+        logger.debug(f"【登录调试】检查页面状态失败: {error_check}")
+    
+    # 获取Cookie
+    logger.info("【登录】获取Session Token...")
+    cookies = await browser.cookies.get_all()
+
+    session_token = None
+    for cookie in cookies:
+        if cookie.name == "WorkosCursorSessionToken" and cookie.value:
+            session_token = f"WorkosCursorSessionToken={cookie.value}"
+            logger.info(f"【登录成功】获取到WorkosCursorSessionToken")
+            break
+
+    if not session_token:
+        logger.error("【登录失败】未能获取到WorkosCursorSessionToken")
+        return None
+
+    # 登录成功后，执行和注册一样的后续流程
+    logger.info("【登录后续】开始执行登录后续流程...")
+
+    # 使用短期session token获取长期有效令牌
+    logger.info("【令牌获取】开始获取长期有效令牌...")
+    long_term_tokens = await get_long_term_tokens(browser, session_token)
+
+    # 访问Dashboard页面并获取试用信息
+    logger.info("【Dashboard页面】准备访问用户Dashboard页面...")
+    await asyncio.sleep(5)  # 等待授权完全完成
+
+    dashboard_success = await visit_dashboard_page(browser, session_token)
+    if dashboard_success:
+        logger.info("【Dashboard页面】Dashboard页面访问成功，登录流程完成")
+    else:
+        logger.warning("【Dashboard页面】Dashboard页面访问失败，继续后续流程")
+
+    # 获取试用信息、使用量信息和用户ID
+    trial_info = get_trial_info(session_token)
+    usage_info = get_usage_info(session_token)
+    user_id = extract_user_id(session_token)
+
+    # 构建完整的登录结果
+    login_result = {
+        "email": email,
+        "session_token": session_token,
+        "long_term_tokens": long_term_tokens,
+        "trial_info": trial_info,
+        "usage_info": usage_info,
+        "user_id": user_id
+    }
+
+    logger.info(f"【登录完成】邮箱: {email}")
+    logger.info(f"【登录完成】用户ID: {user_id}")
+    if trial_info:
+        logger.info(f"【登录完成】试用信息: {trial_info}")
+    if usage_info:
+        logger.info(f"【登录完成】使用量: {usage_info}")
+
+    return login_result
 
 
 def exit_with_confirmation(exit_code: int = 1):
@@ -1150,6 +1362,66 @@ async def main():
 
     logger.success("Complete!")
     await asyncio.sleep(1)
+
+
+async def login_with_email(browser: Browser, email: str) -> Optional[dict]:
+    """
+    使用邮箱登录到 Cursor 账户（验证码方式）
+
+    Args:
+        browser: 浏览器实例
+        email: 要登录的邮箱地址
+
+    Returns:
+        登录成功时返回完整的账户信息字典，失败时返回 None
+    """
+    logger.info(f"【邮箱登录】开始登录邮箱: {email}")
+
+    # 调用登录函数
+    login_result = await sign_in(browser, email)
+
+    if login_result:
+        logger.info("【邮箱登录】登录成功！")
+
+        # 保存登录账户信息（可选）
+        session_token = login_result["session_token"]
+        long_term_tokens = login_result["long_term_tokens"]
+        trial_info = login_result["trial_info"]
+        usage_info = login_result["usage_info"]
+        user_id = login_result["user_id"]
+
+        # 如果有长期令牌，构建长期cookie
+        long_term_cookie = None
+        if long_term_tokens:
+            access_token, refresh_token = long_term_tokens
+            long_term_token = access_token or refresh_token
+
+            # 验证JWT令牌有效期
+            jwt_verification = verify_jwt_expiry(long_term_token)
+            if jwt_verification.get("valid") and jwt_verification.get("is_long_term"):
+                long_term_cookie = build_long_term_cookie(user_id, long_term_token)
+                logger.info("【邮箱登录】✅ 成功构建长期有效cookie")
+
+        # 保存账户信息（登录时密码为空）
+        save_account_info(
+            email=email,
+            password="",  # 登录时没有密码
+            session_token=session_token,
+            access_token=long_term_tokens[0] if long_term_tokens else None,
+            refresh_token=long_term_tokens[1] if long_term_tokens else None,
+            trial_info=trial_info,
+            usage_info=usage_info,
+            user_id=user_id,
+            long_term_cookie=long_term_cookie
+        )
+
+        return login_result
+    else:
+        logger.error(f"【邮箱登录】登录失败: {email}")
+        return None
+
+
+
 
 
 if __name__ == "__main__":
